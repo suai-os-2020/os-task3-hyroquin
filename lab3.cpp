@@ -11,6 +11,7 @@ HANDLE stdout_mutex;
 DWORD IDThread;
 //syhrionized sems
 HANDLE semK, semP, semM;
+HANDLE semA, semB;
 
 unsigned int lab3_thread_graph_id()
 {
@@ -31,6 +32,11 @@ void wait(HANDLE name) {
 	WaitForSingleObject(name, INFINITE);
 }
 
+void release(HANDLE name, int count = 1)
+{
+	ReleaseSemaphore(name, count, NULL);
+}
+
 DWORD WINAPI a(LPVOID pVoid)
 {
 	for (int i = 0;i < 3;i++) {
@@ -39,6 +45,7 @@ DWORD WINAPI a(LPVOID pVoid)
 		ReleaseMutex(stdout_mutex);
 		computation();
 	}
+
 	return 0;
 }
 
@@ -52,6 +59,7 @@ DWORD WINAPI b(LPVOID pVoid)
 	}
 
 	wait(aThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(stdout_mutex);
@@ -72,6 +80,7 @@ DWORD WINAPI c(LPVOID pVoid)
 	}
 
 	wait(bThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(stdout_mutex);
@@ -104,6 +113,7 @@ DWORD WINAPI e(LPVOID pVoid)
 
 	wait(cThread);
 	wait(dThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(stdout_mutex);
@@ -124,6 +134,7 @@ DWORD WINAPI f(LPVOID pVoid)
 	}
 
 	wait(eThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(stdout_mutex);
@@ -145,6 +156,7 @@ DWORD WINAPI g(LPVOID pVoid)
 
 	wait(fThread);
 	wait(hThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(stdout_mutex);
@@ -174,10 +186,11 @@ DWORD WINAPI k(LPVOID pVoid)
 		std::cout << "k" << std::flush;
 		ReleaseMutex(stdout_mutex);
 		computation();
-		ReleaseSemaphore(semM, 1, NULL);
+		release(semM);
 	}
 
 	wait(gThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(semK);
@@ -185,7 +198,7 @@ DWORD WINAPI k(LPVOID pVoid)
 		std::cout << "k" << std::flush;
 		ReleaseMutex(stdout_mutex);
 		computation();
-		ReleaseSemaphore(semM, 1, NULL);
+		release(semM);
 	}
 	return 0;
 }
@@ -198,10 +211,11 @@ DWORD WINAPI m(LPVOID pVoid)
 		std::cout << "m" << std::flush;
 		ReleaseMutex(stdout_mutex);
 		computation();
-		ReleaseSemaphore(semK, 1, NULL);
+		release(semK);
 	}
 
 	wait(gThread);
+	release(semB);
 
 	for (int i = 0;i < 3;i++) {
 		wait(semM);
@@ -209,11 +223,12 @@ DWORD WINAPI m(LPVOID pVoid)
 		std::cout << "m" << std::flush;
 		ReleaseMutex(stdout_mutex);
 		computation();
-		ReleaseSemaphore(semP, 1, NULL);
+		release(semP);
 	}
 
 	wait(pThread);
 	wait(kThread);
+	release(semA);
 
 	for (int i = 0;i < 3;i++) {
 		wait(stdout_mutex);
@@ -245,7 +260,7 @@ DWORD WINAPI p(LPVOID pVoid)
 		std::cout << "p" << std::flush;
 		ReleaseMutex(stdout_mutex);
 		computation();
-		ReleaseSemaphore(semK, 1, NULL);
+		release(semK);
 	}
 	return 0;
 }
@@ -254,6 +269,13 @@ int lab3_init()
 {
 	stdout_mutex = CreateMutex(NULL, false, NULL);
 	if (stdout_mutex == NULL)
+		return GetLastError();
+
+	semA = CreateSemaphore(NULL, 0, MAX_SEM_COUNT, NULL);
+	if (semA == NULL)
+		return GetLastError();
+	semB = CreateSemaphore(NULL, 0, MAX_SEM_COUNT, NULL);
+	if (semB == NULL)
 		return GetLastError();
 
 	semM = CreateSemaphore(NULL, 1, MAX_SEM_COUNT, NULL);
@@ -274,12 +296,14 @@ int lab3_init()
 		return GetLastError();
 	
 	wait(aThread);
+	wait(semA);
 
 	cThread = CreateThread(NULL, 0, (c), 0, 0, &IDThread);
 	if (cThread == NULL)
 		return GetLastError();
 
 	wait(bThread);
+	wait(semA);
 
 	dThread = CreateThread(NULL, 0, (d), 0, 0, &IDThread);
 	if (dThread == NULL)
@@ -290,12 +314,14 @@ int lab3_init()
 
 	wait(cThread);
 	wait(dThread);
+	wait(semA);
 
 	fThread = CreateThread(NULL, 0, (f), 0, 0, &IDThread);
 	if (fThread == NULL)
 		return GetLastError();
 
 	wait(eThread);
+	wait(semA);
 
 	hThread = CreateThread(NULL, 0, (h), 0, 0, &IDThread);
 	if (hThread == NULL)
@@ -306,6 +332,7 @@ int lab3_init()
 
 	wait(fThread);
 	wait(hThread);
+	wait(semA);
 
 	kThread = CreateThread(NULL, 0, (k), 0, 0, &IDThread);
 	if (kThread == NULL)
@@ -315,6 +342,9 @@ int lab3_init()
 		return GetLastError();
 
 	wait(gThread);
+	wait(semA);
+	wait(semB);
+
 
 	pThread = CreateThread(NULL, 0, (p), 0, 0, &IDThread);
 	if (pThread == NULL)
@@ -322,6 +352,7 @@ int lab3_init()
 
 	wait(pThread);
 	wait(kThread);
+	wait(semA);
 
 	nThread = CreateThread(NULL, 0, (n), 0, 0, &IDThread);
 	if (nThread == NULL)
